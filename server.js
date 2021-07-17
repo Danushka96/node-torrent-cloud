@@ -1,36 +1,27 @@
-//load server config
-var config = require("./config.json");
-//apply defaults from env
-for(var k in config) {
-	if(k in process.env) {
-		config[k] = process.env[k];
-	}
-}
-
 //load submodules
-var search = require("./lib/search");
-var torrents = require("./lib/torrents");
-var backend = require("./lib/backend");
-var ws = require("./lib/ws");
+const search = require("./lib/search");
+const torrents = require("./lib/torrents");
+const backend = require("./lib/google-drive");
+const ws = require("./lib/ws");
 
-var basicAuth = require('basic-auth-connect');
-var bodyParser = require('body-parser');
+const basicAuth = require('basic-auth-connect');
+const bodyParser = require('body-parser');
 
-var http = require('http');
-var express = require('express');
-var app = express();
-var server = http.createServer(app);
-var port = parseInt(process.argv[2], 10) ||
-			process.env.PORT || 
-			process.env.OPENSHIFT_NODEJS_PORT || 
+const http = require('http');
+const express = require('express');
+const app = express();
+const server = http.createServer(app);
+const port = parseInt(process.argv[2], 10) ||
+			process.env.PORT ||
+			process.env.OPENSHIFT_NODEJS_PORT ||
 			3000;
-var host = process.env.HOST ||
+const host = process.env.HOST ||
 			process.env.OPENSHIFT_NODEJS_IP ||
 			"0.0.0.0";
 
 //global auth
-var user = process.env.AUTH_USER || 'admin';
-var password = process.env.AUTH_PASSWORD;
+const user = process.env.AUTH_USER || 'admin';
+const password = process.env.AUTH_PASSWORD;
 if(password)
 	app.use(basicAuth(user, password));
 
@@ -67,44 +58,26 @@ function api(name, module) {
 api('search', search);
 api('torrents', torrents);
 
-//TODO(@jpillora) in future, some storage backends may need
-//custom APIs
+
 
 //disallow crawling
 app.get('/robots.txt', function(req, res) {
 	res.send("User-agent: *\nDisallow: /");
 });
 
-//modify configuration
-// app.post('/config', function(req, res) {
-// 	if(!req.body)
-// 		return res.status(400).send("No body");
-// 	var changed = false;
-// 	for(var k in req.body) {
-// 		var v = req.body[k];
-// 		if(k in config && config[k] !== v) {
-// 			config[k] = v;
-// 			changed = true;
-// 		}
-// 	}
-// 	if(changed) {
-// 		update();
-// 	}
-// });
-
 //expose static files
 app.use('/', express.static(__dirname + '/static'));
 
-var storedFiles = {};
+let storedFiles = {};
 
 //broadcast state on "update"
-var update = function(newFiles) {
+const update = (newFiles) => {
 	//optionally update stored files
 	if(newFiles)
 		storedFiles = newFiles;
 	//broadcast state
 	ws.broadcast({
-		config: config,
+		config: {},
 		providers: search.providers,
 		torrents: torrents.list,
 		filesDownloading: torrents.filesDownloading,
